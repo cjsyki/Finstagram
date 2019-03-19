@@ -33,6 +33,7 @@ def index():
         return redirect(url_for("home"))
     return render_template("index.html")
 
+# homepage
 @app.route("/home")
 @login_required
 def home():
