@@ -93,7 +93,7 @@ def loginAuth():
             query = "SELECT * FROM person WHERE username = %s AND password = %s"
             cursor.execute(query, (username, hashedPassword))
         data = cursor.fetchone()
-        
+
         # if entry exists, redirect to homepage with corresponding username
         # else, return user does not exist/incorrect username or password
         if data:
@@ -158,6 +158,23 @@ def upload_image():
     else:
         message = "Failed to upload image."
         return render_template("upload.html", message=message)
+
+
+# groups page
+@app.route( "/groups", methods=["GET", "POST"] )
+@login_required
+def groups( ):
+    username = session["username"]
+    currentGroupsQuery = "SELECT * FROM Belong WHERE username = %s"
+    with connection.cursor( ) as cursor:
+        cursor.execute( currentGroupsQuery, username )
+    data = cursor.fetchall( )
+    # print( data )
+    if data:
+        return render_template( "groups.html", data = data, username = username )
+    else:
+        error = "you are not a member or owner of any group"
+        return render_template( "groups.html", error = error )
 
 if __name__ == "__main__":
     if not os.path.isdir("images"):
