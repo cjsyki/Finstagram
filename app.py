@@ -164,12 +164,15 @@ def upload_image():
 @app.route( "/groups", methods=["GET", "POST"] )
 @login_required
 def groups( ):
+    # grab user's session and query to grab
+    # groups user is in
     username = session["username"]
     currentGroupsQuery = "SELECT * FROM Belong WHERE username = %s"
     with connection.cursor( ) as cursor:
         cursor.execute( currentGroupsQuery, username )
     data = cursor.fetchall( )
-    # print( data )
+    # if user is a member of something, print them out
+    # else, return that there are no groups
     if data:
         return render_template( "groups.html", data = data, username = username )
     else:
