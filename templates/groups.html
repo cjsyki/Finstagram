@@ -1,0 +1,28 @@
+<html>
+    <head>
+        <title>Groups</title>
+    </head>
+
+    <body>
+    <h1>Groups you are a member of</h1>
+    
+    <p>
+    Groups you are an owner of will appear in <b>bold</b>
+    </p>
+    
+    <p>
+        {% if error %}
+            {{ error }}
+        {% else %}
+            {% for member in data %}
+                {% if member[ "groupOwner" ] == username %}
+                    <b>{{ username }}</b>
+                {% elif member[ "username" ] == username %}
+                    {{ username }}
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+    </p>
+    </body>
+
+</html>
