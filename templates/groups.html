@@ -4,6 +4,24 @@
     </head>
 
     <body>
+
+    <p color="red">{{ error }}</p>
+
+    <form action="/groupsAuth" method="POST">
+        <input type="text" name="groupName" placeholder="Enter the group name here:" required/>
+        <br>
+        <input type="radio" name="groupOption" value="create" checked>Create Group
+        <br/>
+        <input type="radio" name="groupOption" value="join">Join Group
+        <br/>
+        <input type="radio" name="groupOption" value="leave">Leave Group
+        <br/>
+        <input type="radio" name="groupOption" value="delete">Delete Group
+        <br/>
+        <input type="submit" value="submit">
+    </form>
+
+
     <h1>Groups you are a member of</h1>
     
     <p>
@@ -11,8 +29,8 @@
     </p>
     
     <p>
-        {% if error %}
-            {{ error }}
+        {% if message %}
+            {{ message }}
         {% else %}
             {% for member in data %}
                 {% if member[ "groupOwner" ] == username %}

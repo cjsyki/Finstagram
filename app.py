@@ -160,10 +160,14 @@ def upload_image():
         return render_template("upload.html", message=message)
 
 
-# groups page
-@app.route( "/groups", methods=["GET", "POST"] )
+# list of groups the user is in page
+# default value for errors is none ( if there are no errors )
+@app.route( "/groups", methods=["GET"], defaults = {"error": None} )
+@app.route( "/groups?<error>", methods=["GET"] )
 @login_required
-def groups( ):
+def groups( error ):
+    # error = request.args.get( error )
+    print( error )
     # grab user's session and query to grab
     # groups user is in
     username = session["username"]
@@ -174,10 +178,37 @@ def groups( ):
     # if user is a member of something, print them out
     # else, return that there are no groups
     if data:
+        if error is not None:
+            return render_template( "groups.html", error = error, data = data, username = username )
         return render_template( "groups.html", data = data, username = username )
     else:
-        error = "you are not a member or owner of any group"
-        return render_template( "groups.html", error = error )
+        message = "you are not a member or owner of any group"
+        if error is not None:
+            return render_template( "groups.html", error = error, message = message )
+        return render_template( "groups.html", message = message )
+
+# authenticating creation or joining
+# a group
+@app.route( "/groupsAuth", methods = ["POST"] )
+@login_required
+def groupAuth( ):
+    if request.files:
+        requestData = request.form
+        username = session["username"]
+        error = ""
+        groupName = requestData["groupName"]
+        option = requestData["groupOption"]
+        if option == "create":
+            try:
+                with connection.cursor() as cursor:
+                    query = "INSERT INTO CloseFriendGroup( groupName, groupOwner ) VALUES ( %s, %s )"
+                    cursor.execute( query, ( groupName, username ) )
+            except pymysql.err.IntegrityError:
+                error = "You already own %s" % ( groupName ) 
+    else:
+        error = "An unknown error occurred. Please try again"
+    return redirect( url_for( "groups", error = error ) )
+
 
 if __name__ == "__main__":
     if not os.path.isdir("images"):
