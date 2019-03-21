@@ -27,6 +27,20 @@ def login_required(f):
         return f(*args, **kwargs)
     return dec
 
+def runQuery( query, returnType, parameters = None ):
+    with connection.cursor( ) as cursor:
+        cursor.execute( query, parameters )
+    if returnType == "one":
+        return cursor.fetchone( )
+    if returnType == "many":
+        return cursor.fetchmany( )
+    if returnType == "all":
+        return cursor.fetchall( )
+    return
+    
+
+
+
 # main page
 @app.route("/")
 def index():
@@ -54,10 +68,8 @@ def upload():
 def images():
     # set and execute query to get all photos
     query = "SELECT * FROM photo"
-    with connection.cursor() as cursor:
-        cursor.execute(query)
-    # fetch data and pass into images page
-    data = cursor.fetchall()
+    data = runQuery( query, "all" )
+    # # fetch data and pass into images page
     return render_template("images.html", images=data)
 
 # image page ( url for a single image )
@@ -89,11 +101,9 @@ def loginAuth():
         hashedPassword = hashlib.sha256(plaintextPasword.encode("utf-8")).hexdigest()
 
         # execute query to find corresponding username and password
-        with connection.cursor() as cursor:
-            query = "SELECT * FROM person WHERE username = %s AND password = %s"
-            cursor.execute(query, (username, hashedPassword))
-        data = cursor.fetchone()
-
+        query = "SELECT * FROM person WHERE username = %s AND password = %s"
+        data = runQuery( query, "one", ( username, hashedPassword ) )
+        
         # if entry exists, redirect to homepage with corresponding username
         # else, return user does not exist/incorrect username or password
         if data:
@@ -121,12 +131,11 @@ def registerAuth():
         # execute query: if username exists, return an error
         # else, add to database and redirect to login 
         try:
-            with connection.cursor() as cursor:
-                query = "INSERT INTO person (username, password, fname, lname) VALUES (%s, %s, %s, %s)"
-                cursor.execute(query, (username, hashedPassword, firstName, lastName))
+            query = "INSERT INTO person (username, password, fname, lname) VALUES (%s, %s, %s, %s)"
+            runQuery( query, None, ( username, hashedPassword, firstName, lastName ) )
         except pymysql.err.IntegrityError:
-            error = "%s is already taken." % (username)
-            return render_template('register.html', error=error)    
+            error = "%s is already taken." % ( username )
+            return render_template('register.html', error = error )    
 
         return redirect(url_for("login"))
 
@@ -151,8 +160,7 @@ def upload_image():
         image_file.save(filepath)
         # execute query to insert the photo's timestamp and filepath
         query = "INSERT INTO photo (timestamp, filePath) VALUES (%s, %s)"
-        with connection.cursor() as cursor:
-            cursor.execute(query, (time.strftime('%Y-%m-%d %H:%M:%S'), image_name))
+        runQuery( query, None, (time.strftime('%Y-%m-%d %H:%M:%S'), image_name) )
         message = "Image has been successfully uploaded."
         return render_template("upload.html", message=message)
     else:
@@ -170,9 +178,7 @@ def groups( error ):
     # groups user is in
     username = session["username"]
     currentGroupsQuery = "SELECT * FROM Belong WHERE username = %s"
-    with connection.cursor( ) as cursor:
-        cursor.execute( currentGroupsQuery, username )
-    data = cursor.fetchall( )
+    data = runQuery( currentGroupsQuery, "all", username )
     # if user is a member of something, print them out
     # else, return that there are no groups
     if data:
@@ -209,11 +215,10 @@ def groupAuth( ):
                 # try inserting user into belongs to and 
                 # closefriendgroup, return error if fails
                 try:
-                    with connection.cursor() as cursor:
-                        query = "INSERT INTO CloseFriendGroup VALUES ( %s, %s )"
-                        cursor.execute( query, ( groupName, username ) )
-                        query = "INSERT INTO Belong VALUES ( %s, %s, %s )"
-                        cursor.execute( query, ( groupName, username, username ) )
+                    query = "INSERT INTO CloseFriendGroup VALUES ( %s, %s )"
+                    runQuery( query, None, ( groupName, username ) )
+                    query = "INSERT INTO Belong VALUES ( %s, %s, %s )"
+                    runQuery( query, None, ( groupName, username, username ) )
                 except pymysql.err.IntegrityError:
                     error = "You already own %s" % ( groupName ) 
         elif option == "join":
@@ -228,11 +233,9 @@ def groupAuth( ):
                 groupOwner = info[1] 
                 # if we cant find a corresponding pair of 
                 # group name + owner, return empty set error
-                with connection.cursor( ) as cursor:
-                    subQuery = "SELECT groupName, groupOwner FROM CloseFriendGroup\
-                            NATURAL JOIN Belong WHERE groupName = %s AND groupOwner = %s"
-                    cursor.execute( subQuery, ( groupName, groupOwner ) )
-                data = cursor.fetchone( )
+                query = "SELECT groupName, groupOwner FROM CloseFriendGroup\
+                        NATURAL JOIN Belong WHERE groupName = %s AND groupOwner = %s"
+                data = runQuery( query, "one", ( groupName, groupOwner ) )
                 if not data:
                     error = "Either the group does not exist or the owner\
                         specified does not own the group."
@@ -240,20 +243,17 @@ def groupAuth( ):
                     # try inserting, return error if user 
                     # is already member
                     try:
-                        with connection.cursor( ) as cursor:
-                            query = "INSERT INTO Belong VALUES ( %s, %s, %s )"
-                            cursor.execute( query, ( groupName, groupOwner, username ) )
+                        query = "INSERT INTO Belong VALUES ( %s, %s, %s )"
+                        runQuery( query, None, ( groupName, groupOwner, username ) )
                     except pymysql.err.IntegrityError:
                         error = "You are already a member of %s" % ( groupName ) 
         elif option == "leave":
             # check to see if the user owns the group.
             # if user does own the group, return an error
             # (owner cannot leave his own group)
-            with connection.cursor( ) as cursor:
-                subQuery = "SELECT groupName, groupOwner FROM CloseFriendGroup\
-                            WHERE groupName = %s AND groupOwner = %s"
-                cursor.execute( subQuery, ( groupName, username ) )
-                data = cursor.fetchone( )
+            query = "SELECT groupName, groupOwner FROM CloseFriendGroup\
+                        WHERE groupName = %s AND groupOwner = %s"
+            data = runQuery( query, "one", ( groupName, username ) )
             if data:
                 error = "You cannot leave a group you are the owner of"
             else:
@@ -261,10 +261,9 @@ def groupAuth( ):
                 try:
                     query = "DELETE FROM Belong WHERE groupName = %s AND \
                             username = %s"
-                    with connection.cursor( ) as cursor:
-                        cursor.execute( query, ( groupName, username ) )
+                    runQuery( query, None, ( groupName, username ) )
                 # AS OF RIGHT NOW, THE NEXT TWO LINES WILL NOT RUN
-                # THIS IS BECAUSE MYSQL WILL NOT RETURN AN ERROR IF
+                # THIS IS BECAUSE MYSQL WILL NOT RETURN AN ERROR IF:
                 # A USER DOES NOT EXIST IN THE GROUP
                 # OR
                 # A GROUP DOES NOT EXIST
