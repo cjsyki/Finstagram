@@ -38,9 +38,6 @@ def runQuery( query, returnType, parameters = None ):
         return cursor.fetchall( )
     return
     
-
-
-
 # main page
 @app.route("/")
 def index():
@@ -220,7 +217,7 @@ def groupAuth( ):
                     query = "INSERT INTO Belong VALUES ( %s, %s, %s )"
                     runQuery( query, None, ( groupName, username, username ) )
                 except pymysql.err.IntegrityError:
-                    error = "You already own %s" % ( groupName ) 
+                    error = "You already own %s" %( groupName ) 
         elif option == "join":
             # CHECK TO SEE IF SEMICOLON IS PROVIDED,
             # RETURN ERROR IF NOT
@@ -237,8 +234,8 @@ def groupAuth( ):
                         NATURAL JOIN Belong WHERE groupName = %s AND groupOwner = %s"
                 data = runQuery( query, "one", ( groupName, groupOwner ) )
                 if not data:
-                    error = "Either the group does not exist or the owner\
-                        specified does not own the group."
+                    error = "Either %s does not exist or %s\
+                            does not own %s." %( groupName, groupOwner, groupName )
                 else:
                     # try inserting, return error if user 
                     # is already member
@@ -246,7 +243,7 @@ def groupAuth( ):
                         query = "INSERT INTO Belong VALUES ( %s, %s, %s )"
                         runQuery( query, None, ( groupName, groupOwner, username ) )
                     except pymysql.err.IntegrityError:
-                        error = "You are already a member of %s" % ( groupName ) 
+                        error = "You are already a member of %s" %( groupName ) 
         elif option == "leave":
             # check to see if the user owns the group.
             # if user does own the group, return an error
@@ -255,7 +252,7 @@ def groupAuth( ):
                         WHERE groupName = %s AND groupOwner = %s"
             data = runQuery( query, "one", ( groupName, username ) )
             if data:
-                error = "You cannot leave a group you are the owner of"
+                error = "You cannot leave %s as you are the owner" %( groupName )
             else:
                 # remove user from group
                 try:
@@ -268,7 +265,25 @@ def groupAuth( ):
                 # OR
                 # A GROUP DOES NOT EXIST
                 except pymysql.err.IntegrityError:
-                    error = "You are not a member of the group"
+                    error = "You are not a member of %s" %( groupName )
+        else:  # option == "delete"
+            # check if user is the owner of group
+            # if user is not the owner, return an error
+            query = "SELECT * FROM CloseFriendGroup WHERE\
+                    groupName = %s AND groupOwner = %s"
+            data = runQuery( query, "one", ( groupName, username ) )
+            if not data:
+                error = "You are not the owner of %s" %( groupName )
+            # else, remove group and its corresponding members
+            #  ( by using groupName and groupOwner )
+            else:
+                query = "DELETE FROM CloseFriendGroup WHERE \
+                        groupName = %s AND groupOwner = %s"
+                runQuery( query, None, ( groupName, username ) )
+                query = "DELETE FROM Belong WHERE \
+                        groupName = %s AND groupOwner = %s"
+                runQuery( query, None, ( groupName, username ) )
+
     else:
         error = "An unknown error occurred. Please try again"
     return redirect( url_for( "groups", error = error ) )
