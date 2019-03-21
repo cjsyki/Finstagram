@@ -220,7 +220,7 @@ def groupAuth( ):
             # CHECK TO SEE IF SEMICOLON IS PROVIDED,
             # RETURN ERROR IF NOT
             if ";" not in groupName:
-                error = "';' must be in your search query"
+                error = "You MUST have the format: <groupName>;<groupOwner>"
             else:
                 # split to grab group name and owner
                 info = groupName.split( ";" )
@@ -245,8 +245,33 @@ def groupAuth( ):
                             cursor.execute( query, ( groupName, groupOwner, username ) )
                     except pymysql.err.IntegrityError:
                         error = "You are already a member of %s" % ( groupName ) 
+        elif option == "leave":
+            # check to see if the user owns the group.
+            # if user does own the group, return an error
+            # (owner cannot leave his own group)
+            with connection.cursor( ) as cursor:
+                subQuery = "SELECT groupName, groupOwner FROM CloseFriendGroup\
+                            WHERE groupName = %s AND groupOwner = %s"
+                cursor.execute( subQuery, ( groupName, username ) )
+                data = cursor.fetchone( )
+            if data:
+                error = "You cannot leave a group you are the owner of"
+            else:
+                # remove user from group
+                try:
+                    query = "DELETE FROM Belong WHERE groupName = %s AND \
+                            username = %s"
+                    with connection.cursor( ) as cursor:
+                        cursor.execute( query, ( groupName, username ) )
+                # AS OF RIGHT NOW, THE NEXT TWO LINES WILL NOT RUN
+                # THIS IS BECAUSE MYSQL WILL NOT RETURN AN ERROR IF
+                # A USER DOES NOT EXIST IN THE GROUP
+                # OR
+                # A GROUP DOES NOT EXIST
+                except pymysql.err.IntegrityError:
+                    error = "You are not a member of the group"
     else:
-        error = "Anunknown error occurred. Please try again"
+        error = "An unknown error occurred. Please try again"
     return redirect( url_for( "groups", error = error ) )
 
 
