@@ -34,9 +34,9 @@
         {% else %}
             {% for member in data %}
                 {% if member[ "groupOwner" ] == username %}
-                    <b>{{ username }}</b>
+                    <b>{{ member[ "groupName" ] }}</b><br>
                 {% elif member[ "username" ] == username %}
-                    {{ username }}
+                    {{ member[ "groupName" ] }}<br>
                 {% endif %}
             {% endfor %}
         {% endif %}

@@ -166,8 +166,6 @@ def upload_image():
 @app.route( "/groups?<error>", methods=["GET"] )
 @login_required
 def groups( error ):
-    # error = request.args.get( error )
-    print( error )
     # grab user's session and query to grab
     # groups user is in
     username = session["username"]
@@ -198,16 +196,40 @@ def groupAuth( ):
         requestData = request.form
         groupName = requestData["groupName"]
         option = requestData["groupOption"]
-        print( option )
         if option == "create":
-            try:
-                with connection.cursor() as cursor:
-                    query = "INSERT INTO CloseFriendGroup( groupName, groupOwner ) VALUES ( %s, %s )"
-                    cursor.execute( query, ( groupName, username ) )
-                    query = "INSERT INTO Belong( groupName, groupOwner, username ) VALUES ( %s, %s, %s )"
-                    cursor.execute( query, ( groupName, username, username ) )
-            except pymysql.err.IntegrityError:
-                error = "You already own %s" % ( groupName ) 
+            if ";" in groupName:
+                error = "You cannot have ';' in your group name"
+            else:
+                try:
+                    with connection.cursor() as cursor:
+                        query = "INSERT INTO CloseFriendGroup VALUES ( %s, %s )"
+                        cursor.execute( query, ( groupName, username ) )
+                        query = "INSERT INTO Belong VALUES ( %s, %s, %s )"
+                        cursor.execute( query, ( groupName, username, username ) )
+                except pymysql.err.IntegrityError:
+                    error = "You already own %s" % ( groupName ) 
+        elif option == "join":
+            if ";" not in groupName:
+                error = "';' must be in your search query"
+            else:
+                info = groupName.split( ";" )
+                groupName = info[0]
+                groupOwner = info[1] 
+                with connection.cursor( ) as cursor:
+                    subQuery = "SELECT groupName, groupOwner FROM CloseFriendGroup\
+                            NATURAL JOIN Belong WHERE groupName = %s AND groupOwner = %s"
+                    cursor.execute( subQuery, ( groupName, groupOwner ) )
+                data = cursor.fetchone( )
+                if not data:
+                    error = "Either the group does not exist or the owner\
+                        specified does not own the group."
+                else:
+                    try:
+                        with connection.cursor( ) as cursor:
+                            query = "INSERT INTO Belong VALUES ( %s, %s, %s )"
+                            cursor.execute( query, ( groupName, groupOwner, username ) )
+                    except pymysql.err.IntegrityError:
+                        error = "You are already a member of %s" % ( groupName ) 
     else:
         error = "Anunknown error occurred. Please try again"
     return redirect( url_for( "groups", error = error ) )
