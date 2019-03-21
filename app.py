@@ -63,11 +63,21 @@ def upload():
 @app.route("/images", methods=["GET"])
 @login_required
 def images():
-    # set and execute query to get all photos
-    query = "SELECT * FROM photo"
+    # set and execute query to get all photos and 
+    # its corresponding likes
+    query = "SELECT photoID, username FROM Liked"
     data = runQuery( query, "all" )
-    # # fetch data and pass into images page
-    return render_template("images.html", images=data)
+    # dictionary with the format:
+    # { photoID_A: [followerA, followerB, etc..], photoID_B: ...}
+    photosLiked = { }
+    for item in data:
+        photoID = item[ "photoID" ]
+        username = item[ "username" ]
+        if photoID not in photosLiked:
+            photosLiked[ photoID ] = [ ]
+        photosLiked[ photoID ].append( username )
+    # pass dictionary into images page
+    return render_template("images.html", images = photosLiked )
 
 # image page ( url for a single image )
 @app.route("/image/<image_name>", methods=["GET"])
@@ -179,12 +189,12 @@ def groups( error ):
     # if user is a member of something, print them out
     # else, return that there are no groups
     if data:
-        if error is not None:
+        if error:
             return render_template( "groups.html", error = error, data = data, username = username )
         return render_template( "groups.html", data = data, username = username )
     else:
         message = "you are not a member or owner of any group"
-        if error is not None:
+        if error:
             return render_template( "groups.html", error = error, message = message )
         return render_template( "groups.html", message = message )
 

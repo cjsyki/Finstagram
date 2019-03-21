@@ -4,12 +4,25 @@
     </head>
     <body>
         <h1>Image Gallery</h1>
-        <div>
-            {% for image in images %}
-
-            <img src="/image/{{image.filePath}}" width="300"/>
+        <table style="width: 100%">
+        {#
+        for every photoID and its corresponding followers,
+        get photo ( with filepath ) and iterate through followers
+        to print individual follower
+        #}
+            {% for photoID, followers in images.items( ) %}
+                <tr>
+                    <td>
+                        <img src="/image/{{photoID.filePath}}" width="300"/>
+                    </td>
+                    <td><ul>
+                        {% for follower in followers %}
+                            <li>{{ follower }}</li>    
+                        {% endfor %}
+                    </ul></td>
+                </tr>
             {% endfor %}
-        </div>
+        </table>
         <a href="/">Go back</a>
     </body>
 </html>
