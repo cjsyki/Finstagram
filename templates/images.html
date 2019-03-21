@@ -10,13 +10,24 @@
         get photo ( with filepath ) and iterate through followers
         to print individual follower
         #}
-            {% for photoID, followers in images.items( ) %}
+            {% for photoID, data in images.items( ) %}
                 <tr>
                     <td>
-                        <img src="/image/{{photoID.filePath}}" width="300"/>
+                        <img src="/image/{{photoID.filePath}}" width="200"/>
+                    </td>
+                    <td>
+                        {#
+                        if user liked the photo, show "unlike photo"
+                        else, if the user doesnt like the photo, then show "like photo"
+                        #}
+                        {% if data[ 1 ] %}
+                            <a href="/images?photoID={{photoID}}&option=unlike">Unlike Photo</a>
+                        {% else %}
+                            <a href="/images?photoID={{photoID}}&option=like">Like Photo</a>
+                        {% endif %}
                     </td>
                     <td><ul>
-                        {% for follower in followers %}
+                        {% for follower in data[ 0 ] %}
                             <li>{{ follower }}</li>    
                         {% endfor %}
                     </ul></td>

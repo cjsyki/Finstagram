@@ -63,48 +63,37 @@ def upload():
 @app.route("/images", methods=["GET"])
 @login_required
 def images():
-    # ============
-    # the following is only if the user
-    # likes or dislikes a photo
-    
-    # grab the photoID and option (like/unlike) from url
-    username = session[ "username" ]
-    photoID = request.args.get( "photoID" )
-    option = request.args.get( "option" )
-    # if user clicked unlike, remove from liked table.
-    # else, add to liked table
-    if option == "unlike":
-        query = "DELETE FROM Liked WHERE username = %s AND\
-                photoID = %s"
-        runQuery( query, None, ( username, photoID ) )
-    elif option == "like":
-        query = "INSERT INTO Liked( username, photoID ) VALUES( %s, %s )"
-        runQuery( query, None, ( username, photoID ) )
-    # ============
-
     # set and execute query to get all photos and 
     # its corresponding likes
     query = "SELECT photoID, username FROM Liked"
     data = runQuery( query, "all" )
     # dictionary with the format:
-    # { photoID_A: [[followerA, followerB, etc..], True (if user likes photo)], 
-    #               photoID_B: ...}
+    # { photoID_A: [followerA, followerB, etc..], photoID_B: ...}
     photosLiked = { }
     for item in data:
         photoID = item[ "photoID" ]
         username = item[ "username" ]
-        # if photoID not in dictionary, add it 
-        # and set followers list to empty and set liked status 
-        # to False
         if photoID not in photosLiked:
             photosLiked[ photoID ] = [ [ ], False ]
         photosLiked[ photoID ][ 0 ].append( username )
-        # if the user liked the photo (if the user and photoID
-        # is in the Liked table), then set its liked status to True
         if username == session[ "username" ]:
             photosLiked[ photoID ][ 1 ] = True
     # pass dictionary into images page
     return render_template("images.html", images = photosLiked )
+
+@app.route( "/images/<photoID>?<option>" )
+@login_required
+def likeOrUnlike( photoID, option ):
+    username = session[ "username" ]
+    if option == "unlike":
+        query = "DELETE FROM Liked WHERE username = %s AND\
+                photoID = %s"
+        runQuery( query, None, ( username, photoID ) )
+    elif option == "like":
+        query = "DELETE FROM Liked WHERE username = %s AND\
+                photoID = %s"
+        runQuery( query, None, ( username, photoID ) )
+    return redirect( url_for( "images" ) )
 
 # image page ( url for a single image )
 @app.route("/image/<image_name>", methods=["GET"])
