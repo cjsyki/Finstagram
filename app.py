@@ -190,16 +190,24 @@ def groups( error ):
 @app.route( "/groupsAuth", methods = ["POST"] )
 @login_required
 def groupAuth( ):
+    # grab username and set error to none
     username = session["username"]
     error = None
     if request.form:
+        # grab the group name and the option they chose
         requestData = request.form
         groupName = requestData["groupName"]
         option = requestData["groupOption"]
         if option == "create":
+            # SETTING CONSTRAINT THAT THERE CANNOT BE 
+            # A SEMICOLON ; IN ANY GROUP NAME
+            # THIS IS TO ALLOW FOR SEARCHING FOR 
+            # GROUPS ALONG WITH THEIR OWNER
             if ";" in groupName:
                 error = "You cannot have ';' in your group name"
             else:
+                # try inserting user into belongs to and 
+                # closefriendgroup, return error if fails
                 try:
                     with connection.cursor() as cursor:
                         query = "INSERT INTO CloseFriendGroup VALUES ( %s, %s )"
@@ -209,12 +217,17 @@ def groupAuth( ):
                 except pymysql.err.IntegrityError:
                     error = "You already own %s" % ( groupName ) 
         elif option == "join":
+            # CHECK TO SEE IF SEMICOLON IS PROVIDED,
+            # RETURN ERROR IF NOT
             if ";" not in groupName:
                 error = "';' must be in your search query"
             else:
+                # split to grab group name and owner
                 info = groupName.split( ";" )
                 groupName = info[0]
                 groupOwner = info[1] 
+                # if we cant find a corresponding pair of 
+                # group name + owner, return empty set error
                 with connection.cursor( ) as cursor:
                     subQuery = "SELECT groupName, groupOwner FROM CloseFriendGroup\
                             NATURAL JOIN Belong WHERE groupName = %s AND groupOwner = %s"
@@ -224,6 +237,8 @@ def groupAuth( ):
                     error = "Either the group does not exist or the owner\
                         specified does not own the group."
                 else:
+                    # try inserting, return error if user 
+                    # is already member
                     try:
                         with connection.cursor( ) as cursor:
                             query = "INSERT INTO Belong VALUES ( %s, %s, %s )"
