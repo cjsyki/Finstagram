@@ -192,21 +192,24 @@ def groups( error ):
 @app.route( "/groupsAuth", methods = ["POST"] )
 @login_required
 def groupAuth( ):
-    if request.files:
+    username = session["username"]
+    error = None
+    if request.form:
         requestData = request.form
-        username = session["username"]
-        error = ""
         groupName = requestData["groupName"]
         option = requestData["groupOption"]
+        print( option )
         if option == "create":
             try:
                 with connection.cursor() as cursor:
                     query = "INSERT INTO CloseFriendGroup( groupName, groupOwner ) VALUES ( %s, %s )"
                     cursor.execute( query, ( groupName, username ) )
+                    query = "INSERT INTO Belong( groupName, groupOwner, username ) VALUES ( %s, %s, %s )"
+                    cursor.execute( query, ( groupName, username, username ) )
             except pymysql.err.IntegrityError:
                 error = "You already own %s" % ( groupName ) 
     else:
-        error = "An unknown error occurred. Please try again"
+        error = "Anunknown error occurred. Please try again"
     return redirect( url_for( "groups", error = error ) )
 
 
