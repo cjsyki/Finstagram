@@ -82,10 +82,9 @@ def images():
         runQuery( query, None, ( username, photoID ) )
     # ============
 
-    # set and execute query to get all photos and 
-    # its corresponding likes
+    # set and execute query to get data on all photos
     query = "SELECT photoID, username, filePath FROM Liked\
-            JOIN Photo USING( photoID )"
+            RIGHT OUTER JOIN Photo USING( photoID )"
     data = runQuery( query, "all" )
     print( data )
     # dictionary with the format:
