@@ -23,6 +23,11 @@
                     <td>
                         Uploaded on: {{ data[ 3 ] }}
                     </td>
+                    <td> 
+                        {% if data[ 6 ] %}
+                            {{ data[ 6 ] }}
+                        {% endif %}
+                    </td>
                     <td>
                         {#
                         if user liked the photo, show "unlike photo"

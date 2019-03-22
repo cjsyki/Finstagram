@@ -56,6 +56,7 @@ def grabAllPhotoData( ):
     #       timestamp,
     #       [list of users who liked],
     #       True/False if user has liked photo,
+    #       caption
     # 
     # 
     # 
@@ -68,6 +69,7 @@ def grabAllPhotoData( ):
         lastName = item[ "lname" ]
         timestamp = item[ "timestamp" ]
         likerUsername = item[ "likerUsername" ]
+        caption = item[ "caption" ]
         
         # if photoID not in dictionary, add it 
         # and set followers list to empty and set liked status 
@@ -75,7 +77,7 @@ def grabAllPhotoData( ):
         if photoID not in photoData:
             photoData[ photoID ] = [ filePath, photoOwner, \
                                     firstName + " " + lastName,\
-                                    timestamp, [ ], False ]
+                                    timestamp, [ ], False, caption ]
         photoData[ photoID ][ 4 ].append( likerUsername )
         
         # if the user liked the photo (if the current user and photoID
@@ -157,9 +159,8 @@ def register():
 def loginAuth():
     if request.form:
         # grab entered username and password 
-        requestData = request.form
-        username = requestData["username"]
-        plaintextPasword = requestData["password"]
+        username = request.form["username"]
+        plaintextPasword = request.form["password"]
         # hash password to compare with hashed stored in database
         hashedPassword = hashlib.sha256(plaintextPasword.encode("utf-8")).hexdigest()
 
@@ -184,12 +185,11 @@ def loginAuth():
 def registerAuth():
     if request.form:
         # grab corresponding username, hashed password, first name, last name
-        requestData = request.form
-        username = requestData["username"]
-        plaintextPasword = requestData["password"]
+        username = request.form["username"]
+        plaintextPasword = request.form["password"]
         hashedPassword = hashlib.sha256(plaintextPasword.encode("utf-8")).hexdigest()
-        firstName = requestData["fname"]
-        lastName = requestData["lname"]
+        firstName = request.form["fname"]
+        lastName = request.form["lname"]
         
         # execute query: if username exists, return an error
         # else, add to database and redirect to login 
@@ -216,15 +216,18 @@ def logout():
 @login_required
 def upload_image():
     if request.files:
-        # grab image name, filepath, username
+        # grab image name, filepath, username, caption
         image_file = request.files.get("imageToUpload", "")
         image_name = image_file.filename
         filepath = os.path.join(IMAGES_DIR, image_name)
         image_file.save(filepath)
         username = session[ "username" ]
+        caption = request.form[ "caption" ]
         # execute query to insert the photo's timestamp and filepath
-        query = "INSERT INTO photo (photoOwner, timestamp, filePath) VALUES (%s, %s, %s)"
-        runQuery( query, None, (username, time.strftime('%Y-%m-%d %H:%M:%S'), image_name) )
+        query = "INSERT INTO photo ( photoOwner, timestamp, filePath, \
+                caption ) VALUES ( %s, %s, %s, %s )"
+        runQuery( query, None, (username, time.strftime('%Y-%m-%d %H:%M:%S'), \
+                image_name, caption ) )
         message = "Image has been successfully uploaded."
         return render_template("upload.html", message=message)
     else:
@@ -265,9 +268,8 @@ def groupAuth( ):
     error = None
     if request.form:
         # grab the group name and the option they chose
-        requestData = request.form
-        groupName = requestData["groupName"]
-        option = requestData["groupOption"]
+        groupName = request.form["groupName"]
+        option = request.form["groupOption"]
         if option == "create":
             # SETTING CONSTRAINT THAT THERE CANNOT BE 
             # A SEMICOLON ; IN ANY GROUP NAME
