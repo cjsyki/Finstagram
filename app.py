@@ -84,27 +84,34 @@ def images():
 
     # set and execute query to get all photos and 
     # its corresponding likes
-    query = "SELECT photoID, username FROM Liked"
+    query = "SELECT photoID, username, filePath FROM Liked\
+            JOIN Photo USING( photoID )"
     data = runQuery( query, "all" )
+    print( data )
     # dictionary with the format:
-    # { photoID_A: [[followerA, followerB, etc..], True (if user likes photo)], 
-    #               photoID_B: ...}
-    photosLiked = { }
+    # { photoID_A: [filepath, [followerA, followerB, etc..], True (if user likes photo)], 
+    #   photoID_B: [filePath, [ ], False ]
+    # ...}
+    photoData = { }
     for item in data:
         photoID = item[ "photoID" ]
         username = item[ "username" ]
+        filePath = item[ "filePath" ]
+        
         # if photoID not in dictionary, add it 
         # and set followers list to empty and set liked status 
         # to False
-        if photoID not in photosLiked:
-            photosLiked[ photoID ] = [ [ ], False ]
-        photosLiked[ photoID ][ 0 ].append( username )
-        # if the user liked the photo (if the user and photoID
+        if photoID not in photoData:
+            photoData[ photoID ] = [ filePath, [ ], False ]
+        photoData[ photoID ][ 1 ].append( username )
+        
+        # if the user liked the photo (if the current user and photoID
         # is in the Liked table), then set its liked status to True
         if username == session[ "username" ]:
-            photosLiked[ photoID ][ 1 ] = True
+            photoData[ photoID ][ 2 ] = True
     # pass dictionary into images page
-    return render_template("images.html", images = photosLiked )
+    print( photoData )
+    return render_template("images.html", images = photoData )
 
 # image page ( url for a single image )
 @app.route("/image/<image_name>", methods=["GET"])
