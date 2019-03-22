@@ -1,3 +1,5 @@
+<link rel="stylesheet" type="text/css" href="{{url_for('static', filename='images.css')}}" >
+
 <html>
     <head>
         <title>Finstagram</title>
@@ -15,6 +17,7 @@
                     <td>
                         <img src="/image/{{data[0]}}" width="200"/>
                     </td>
+                    
                     <td>
                         {#
                         if user liked the photo, show "unlike photo"

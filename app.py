@@ -27,7 +27,9 @@ def login_required(f):
         return f(*args, **kwargs)
     return dec
 
-def runQuery( query, returnType, parameters = None ):
+# takes in a query ( and optionally a return type
+# and parameters ) and executes the query
+def runQuery( query, returnType = None, parameters = None ):
     with connection.cursor( ) as cursor:
         cursor.execute( query, parameters )
     if returnType == "one":
@@ -38,6 +40,46 @@ def runQuery( query, returnType, parameters = None ):
         return cursor.fetchall( )
     return
     
+def grabAllPhotoData( ):
+    # set and execute query to get data on all photos
+    query = "SELECT * FROM Liked RIGHT OUTER JOIN Photo\
+                USING( photoID )"
+    data = runQuery( query, "all" )
+    print( data )
+    # dictionary with the format:
+    # { 
+    #   photoID: [
+    #       filepath, 
+    #       timestamp,
+    #       [list of users who liked],
+    #       True/False if user has liked photo,
+    # 
+    # 
+    # 
+    photoData = { }
+    for item in data:
+        photoID = item[ "photoID" ]
+        username = item[ "username" ]
+        filePath = item[ "filePath" ]
+        timestamp = item[ "timestamp" ]
+        # firstName = item[ "fName" ]
+        # lastName = item[ "lName" ]
+        
+        # if photoID not in dictionary, add it 
+        # and set followers list to empty and set liked status 
+        # to False
+        if photoID not in photoData:
+            photoData[ photoID ] = [ filePath, [ ], False ]
+        photoData[ photoID ][ 1 ].append( username )
+        
+        # if the user liked the photo (if the current user and photoID
+        # is in the Liked table), then set its liked status to True
+        if username == session[ "username" ]:
+            photoData[ photoID ][ 2 ] = True
+    # pass dictionary into images page
+    print( photoData )
+    return photoData
+
 # main page
 @app.route("/")
 def index():
@@ -81,35 +123,7 @@ def images():
         query = "INSERT INTO Liked( username, photoID ) VALUES( %s, %s )"
         runQuery( query, None, ( username, photoID ) )
     # ============
-
-    # set and execute query to get data on all photos
-    query = "SELECT photoID, username, filePath FROM Liked\
-            RIGHT OUTER JOIN Photo USING( photoID )"
-    data = runQuery( query, "all" )
-    print( data )
-    # dictionary with the format:
-    # { photoID_A: [filepath, [followerA, followerB, etc..], True (if user likes photo)], 
-    #   photoID_B: [filePath, [ ], False ]
-    # ...}
-    photoData = { }
-    for item in data:
-        photoID = item[ "photoID" ]
-        username = item[ "username" ]
-        filePath = item[ "filePath" ]
-        
-        # if photoID not in dictionary, add it 
-        # and set followers list to empty and set liked status 
-        # to False
-        if photoID not in photoData:
-            photoData[ photoID ] = [ filePath, [ ], False ]
-        photoData[ photoID ][ 1 ].append( username )
-        
-        # if the user liked the photo (if the current user and photoID
-        # is in the Liked table), then set its liked status to True
-        if username == session[ "username" ]:
-            photoData[ photoID ][ 2 ] = True
-    # pass dictionary into images page
-    print( photoData )
+    photoData = grabAllPhotoData( )
     return render_template("images.html", images = photoData )
 
 # image page ( url for a single image )
