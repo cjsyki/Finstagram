@@ -57,7 +57,8 @@ def grabAllPhotoData( ):
     #       [list of users who liked],
     #       True/False if user has liked photo,
     #       caption
-    # 
+    #  ]
+    # }
     # 
     # 
     photoData = { }
@@ -244,7 +245,9 @@ def groups( error ):
     # grab user's session and query to grab
     # groups user is in
     username = session["username"]
-    currentGroupsQuery = "SELECT * FROM Belong WHERE username = %s"
+    currentGroupsQuery = "SELECT *\
+                        FROM Belong\
+                        WHERE username = %s"
     data = runQuery( currentGroupsQuery, "all", username )
     # if user is a member of something, print them out
     # else, return that there are no groups
@@ -299,8 +302,9 @@ def groupAuth( ):
                 groupOwner = info[1] 
                 # if we cant find a corresponding pair of 
                 # group name + owner, return empty set error
-                query = "SELECT groupName, groupOwner FROM CloseFriendGroup\
-                        NATURAL JOIN Belong WHERE groupName = %s AND groupOwner = %s"
+                query = "SELECT groupName, groupOwner\
+                        FROM CloseFriendGroup NATURAL JOIN Belong\
+                        WHERE groupName = %s AND groupOwner = %s"
                 data = runQuery( query, "one", ( groupName, groupOwner ) )
                 if not data:
                     error = "Either %s does not exist or %s\
@@ -317,16 +321,17 @@ def groupAuth( ):
             # check to see if the user owns the group.
             # if user does own the group, return an error
             # (owner cannot leave his own group)
-            query = "SELECT groupName, groupOwner FROM CloseFriendGroup\
-                        WHERE groupName = %s AND groupOwner = %s"
+            query = "SELECT groupName, groupOwner\
+                    FROM CloseFriendGroup\
+                    WHERE groupName = %s AND groupOwner = %s"
             data = runQuery( query, "one", ( groupName, username ) )
             if data:
                 error = "You cannot leave %s as you are the owner" %( groupName )
             else:
                 # remove user from group
                 try:
-                    query = "DELETE FROM Belong WHERE groupName = %s AND \
-                            username = %s"
+                    query = "DELETE FROM Belong\
+                            WHERE groupName = %s AND username = %s"
                     runQuery( query, None, ( groupName, username ) )
                 # AS OF RIGHT NOW, THE NEXT TWO LINES WILL NOT RUN
                 # THIS IS BECAUSE MYSQL WILL NOT RETURN AN ERROR IF:
@@ -338,8 +343,9 @@ def groupAuth( ):
         else:  # option == "delete"
             # check if user is the owner of group
             # if user is not the owner, return an error
-            query = "SELECT * FROM CloseFriendGroup WHERE\
-                    groupName = %s AND groupOwner = %s"
+            query = "SELECT *\
+                    FROM CloseFriendGroup\
+                    WHERE groupName = %s AND groupOwner = %s"
             data = runQuery( query, "one", ( groupName, username ) )
             if not data:
                 error = "You are not the owner of %s" %( groupName )
@@ -356,6 +362,94 @@ def groupAuth( ):
     else:
         error = "An unknown error occurred. Please try again"
     return redirect( url_for( "groups", error = error ) )
+
+
+@app.route( "/follow", methods = ["GET"], defaults = {"error": None} )
+@app.route( "/follow?<error>", methods = ["GET"] )
+@login_required
+def follow( error ):
+    # grab username and option user selected (optional)
+    currentUsername = session[ "username" ]
+    option = request.args.get( "option" )
+    followUsername = request.args.get( "username" )
+    # if user accepts request, change bool to True
+    if option == "accept":
+        query = "UPDATE Follow\
+                SET acceptedfollow = True\
+                WHERE followerUsername = %s AND followeeUsername = %s"
+        runQuery( query, None, ( followUsername, currentUsername ) )
+    # if user declines, delete request
+    if option == "reject":
+        query = "DELETE FROM Follow\
+                WHERE followerUsername = %s AND followeeUsername = %s"
+        runQuery( query, None, ( followUsername, currentUsername ) )
+    # if user unfollows someone, delete from follows
+    if option == "unfollow":
+        query = "DELETE FROM Follow\
+                WHERE followerUsername = %s AND followeeUsername = %s"
+        runQuery( query, None, ( currentUsername, followUsername ) )
+
+    # run query to grab all follow requests
+    # where followeeUsername = ourself AND we haven't accepted request
+    query = "SELECT followerUsername\
+            FROM Follow\
+            WHERE followeeUsername = %s AND acceptedfollow = False"
+    data = runQuery( query, "all", currentUsername )
+    requests = [ ]
+    for element in data:
+        requests.append( element[ "followerUsername" ] ) 
+
+    # run query to grab ALL WE FOLLOW ( we are follower ) 
+    query = "SELECT followeeUsername\
+            FROM Follow\
+            WHERE followerUsername = %s AND acceptedfollow = True"
+    data = runQuery( query, "all", currentUsername )
+    followers = [ ]
+    for element in data:
+        followers.append( element[ "followeeUsername" ] )
+
+    # run query to grab ALL FOLLOWEES ( we are followee )
+    query = "SELECT followerUsername\
+            FROM Follow\
+            WHERE followeeUsername = %s AND acceptedfollow = True"
+    data = runQuery( query, "all", currentUsername )
+    followees = [ ]
+    for element in data:
+        followees.append( element[ "followerUsername" ] ) 
+    return render_template( "follow.html", error = error,\
+                        requests = requests, followers = followers,\
+                        followees = followees )
+
+@app.route( "/followAuth", methods = ["POST"] )
+@login_required
+def followAuth( ):
+    if request.form:
+        # grab follower and followee
+        followerUsername = session[ "username" ]
+        followeeUsername = request.form[ "followeeUsername" ]
+        # if someone wants to follow himself, return an error
+        if followerUsername == followeeUsername:
+            error = "You cannot follow yourself"
+            return redirect( url_for( "follow", error = error ) )
+        # run query to check if user exists. if it doesn't, return error 
+        query = "SELECT * FROM Person WHERE username = %s"
+        data = runQuery( query, "one", followeeUsername )
+        if not data:
+            error = "%s does not exist" %( followeeUsername )             
+            return redirect( url_for( "follow", error = error ) )
+        # run query to add into follows. if request already exists,
+        # return error
+        try:
+            query = "INSERT INTO Follow VALUES( %s, %s, %s )"
+            runQuery( query, None, ( followerUsername, followeeUsername, False ) )
+            error = "Request to %s has been sent" %( followeeUsername )
+        except pymysql.err.IntegrityError:
+            error = "Either you have already sent a request to\
+                    or you already follow %s" %( followeeUsername )
+        return redirect( url_for( "follow", error = error ) )
+    else:
+        error = "An error has occurred. Please try again"
+        return redirect( url_for( "follow", error = error ) )
 
 
 if __name__ == "__main__":
