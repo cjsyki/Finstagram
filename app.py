@@ -215,7 +215,7 @@ def logout():
 @app.route("/uploadImage", methods=["POST"])
 @login_required
 def upload_image():
-    if request.files:
+    try:
         # grab image name, filepath, username, caption
         image_file = request.files.get("imageToUpload", "")
         image_name = image_file.filename
@@ -230,7 +230,7 @@ def upload_image():
                 image_name, caption ) )
         message = "Image has been successfully uploaded."
         return render_template("upload.html", message=message)
-    else:
+    except:
         message = "Failed to upload image."
         return render_template("upload.html", message=message)
 
