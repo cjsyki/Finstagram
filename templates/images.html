@@ -17,20 +17,25 @@
                     <td>
                         <img src="/image/{{data[0]}}" width="200"/>
                     </td>
-                    
+                    <td>
+                        By: {{ data[ 2 ] }} ({{ data[ 1 ] }})
+                    </td>
+                    <td>
+                        Uploaded on: {{ data[ 3 ] }}
+                    </td>
                     <td>
                         {#
                         if user liked the photo, show "unlike photo"
                         else, if the user doesnt like the photo, then show "like photo"
                         #}
-                        {% if data[ 2 ] %}
+                        {% if data[ 5 ] %}
                             <a href="/images?photoID={{photoID}}&option=unlike">Unlike Photo</a>
                         {% else %}
                             <a href="/images?photoID={{photoID}}&option=like">Like Photo</a>
                         {% endif %}
                     </td>
                     <td><ul>
-                        {% for follower in data[ 1 ] %}
+                        {% for follower in data[ 4 ] %}
                             <li>{{ follower }}</li>    
                         {% endfor %}
                     </ul></td>

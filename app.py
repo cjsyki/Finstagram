@@ -42,14 +42,17 @@ def runQuery( query, returnType = None, parameters = None ):
     
 def grabAllPhotoData( ):
     # set and execute query to get data on all photos
-    query = "SELECT * FROM Liked RIGHT OUTER JOIN Photo\
-                USING( photoID )"
+    query = "SELECT * FROM Liked RIGHT OUTER JOIN \
+            (photo JOIN person ON( photo.photoOwner = person.username ) )\
+            USING( photoID );"
     data = runQuery( query, "all" )
     print( data )
     # dictionary with the format:
     # { 
     #   photoID: [
     #       filepath, 
+    #       photoOwner,
+    #       firstName + lastName of photo owner,
     #       timestamp,
     #       [list of users who liked],
     #       True/False if user has liked photo,
@@ -58,24 +61,27 @@ def grabAllPhotoData( ):
     # 
     photoData = { }
     for item in data:
-        photoID = item[ "photoID" ]
-        username = item[ "username" ]
         filePath = item[ "filePath" ]
+        photoID = item[ "photoID" ]
+        photoOwner = item[ "photoOwner" ]
+        firstName = item[ "fname" ]
+        lastName = item[ "lname" ]
         timestamp = item[ "timestamp" ]
-        # firstName = item[ "fName" ]
-        # lastName = item[ "lName" ]
+        likerUsername = item[ "likerUsername" ]
         
         # if photoID not in dictionary, add it 
         # and set followers list to empty and set liked status 
         # to False
         if photoID not in photoData:
-            photoData[ photoID ] = [ filePath, [ ], False ]
-        photoData[ photoID ][ 1 ].append( username )
+            photoData[ photoID ] = [ filePath, photoOwner, \
+                                    firstName + " " + lastName,\
+                                    timestamp, [ ], False ]
+        photoData[ photoID ][ 4 ].append( likerUsername )
         
         # if the user liked the photo (if the current user and photoID
         # is in the Liked table), then set its liked status to True
-        if username == session[ "username" ]:
-            photoData[ photoID ][ 2 ] = True
+        if likerUsername == session[ "username" ]:
+            photoData[ photoID ][ 5 ] = True
     # pass dictionary into images page
     print( photoData )
     return photoData
@@ -115,13 +121,16 @@ def images():
     option = request.args.get( "option" )
     # if user clicked unlike, remove from liked table.
     # else, add to liked table
-    if option == "unlike":
-        query = "DELETE FROM Liked WHERE username = %s AND\
-                photoID = %s"
-        runQuery( query, None, ( username, photoID ) )
-    elif option == "like":
-        query = "INSERT INTO Liked( username, photoID ) VALUES( %s, %s )"
-        runQuery( query, None, ( username, photoID ) )
+    try:
+        if option == "unlike":
+            query = "DELETE FROM Liked WHERE likerUsername = %s AND\
+                    photoID = %s"
+            runQuery( query, None, ( username, photoID ) )
+        elif option == "like":
+            query = "INSERT INTO Liked( likerUsername, photoID ) VALUES( %s, %s )"
+            runQuery( query, None, ( username, photoID ) )
+    except pymysql.err.IntegrityError:
+        return redirect( url_for( "images" ) )
     # ============
     photoData = grabAllPhotoData( )
     return render_template("images.html", images = photoData )
@@ -207,14 +216,15 @@ def logout():
 @login_required
 def upload_image():
     if request.files:
-        # grab image name, filepath
+        # grab image name, filepath, username
         image_file = request.files.get("imageToUpload", "")
         image_name = image_file.filename
         filepath = os.path.join(IMAGES_DIR, image_name)
         image_file.save(filepath)
+        username = session[ "username" ]
         # execute query to insert the photo's timestamp and filepath
-        query = "INSERT INTO photo (timestamp, filePath) VALUES (%s, %s)"
-        runQuery( query, None, (time.strftime('%Y-%m-%d %H:%M:%S'), image_name) )
+        query = "INSERT INTO photo (photoOwner, timestamp, filePath) VALUES (%s, %s, %s)"
+        runQuery( query, None, (username, time.strftime('%Y-%m-%d %H:%M:%S'), image_name) )
         message = "Image has been successfully uploaded."
         return render_template("upload.html", message=message)
     else:

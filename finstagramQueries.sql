@@ -55,11 +55,11 @@ CREATE TABLE Share(
 );
 
 CREATE TABLE Liked(
-    username VARCHAR(20),
+    likerUsername VARCHAR(20),
     photoID int,
     timestamp Timestamp,
-    PRIMARY KEY (username, photoID),
-    FOREIGN KEY (username) REFERENCES Person(username),
+    PRIMARY KEY (likerUsername, photoID),
+    FOREIGN KEY (likerUsername) REFERENCES Person(username),
     FOREIGN KEY (photoID) REFERENCES Photo(photoID)
 );
 
