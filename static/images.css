@@ -1,0 +1,3 @@
+/* allows for vertical table (flipped on diagonal) */
+tr { display: block; float: left; }
+th, td { display: block; }

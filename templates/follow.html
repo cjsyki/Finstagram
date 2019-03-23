@@ -1,0 +1,44 @@
+<html>
+    <head>
+        <title>Followers</title>
+    </head>
+    <body>
+        {% if error %}
+            <div style="color: red">{{ error }}</div>
+        {% endif %}
+        <br>
+        <h1>Follow someone:</h1>
+            <br>
+            <form action="/followAuth" method="POST">
+                <input type="text" name="followeeUsername" placeholder="Enter username:">
+                <input type="submit" value="Send request">
+            </form>
+        <br>
+        <h1>Follow requests:</h1>
+            
+            {% for request in requests %}
+                {{ request }} - 
+                <a href="/follow?option=accept&username={{request}}">Accept</a>
+                <a href="/follow?option=reject&username={{request}}">Reject</a>
+            {% endfor %}
+            
+        <br>
+        <h1>Following:</h1>
+            {% for follower in followers %}
+                {{ follower }} - 
+                <a href="/follow?option=unfollow&username={{follower}}">Unfollow</a>
+            {% endfor %}
+        <br>
+        <h1>Followed by:</h1>
+            {% for followee in followees %}
+                {{ followee }} 
+            {% endfor %}
+        <div>
+        </div>
+        {% if message %}
+            <p style="color: red">{{ message }}</p>
+        {% endif %}
+        <br/>
+        <a href="/">Go back</a>
+    </body>
+</html>
