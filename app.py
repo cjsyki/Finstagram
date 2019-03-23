@@ -44,7 +44,8 @@ def grabAllPhotoData( ):
     # set and execute query to get data on all photos
     query = "SELECT * FROM Liked RIGHT OUTER JOIN \
             (photo JOIN person ON( photo.photoOwner = person.username ) )\
-            USING( photoID );"
+            USING( photoID )\
+            ORDER BY Photo.timestamp ASC, Liked.timestamp ASC"
     data = runQuery( query, "all" )
     print( data )
     # dictionary with the format:
@@ -130,8 +131,9 @@ def images():
                     photoID = %s"
             runQuery( query, None, ( username, photoID ) )
         elif option == "like":
-            query = "INSERT INTO Liked( likerUsername, photoID ) VALUES( %s, %s )"
-            runQuery( query, None, ( username, photoID ) )
+            query = "INSERT INTO Liked VALUES( %s, %s, %s )"
+            runQuery( query, None, ( username, photoID, \
+                    time.strftime('%Y-%m-%d %H:%M:%S') ) )
     except pymysql.err.IntegrityError:
         return redirect( url_for( "images" ) )
     # ============
@@ -364,6 +366,7 @@ def groupAuth( ):
     return redirect( url_for( "groups", error = error ) )
 
 
+# view your followers page
 @app.route( "/follow", methods = ["GET"], defaults = {"error": None} )
 @app.route( "/follow?<error>", methods = ["GET"] )
 @login_required
@@ -420,6 +423,8 @@ def follow( error ):
                         requests = requests, followers = followers,\
                         followees = followees )
 
+# post method to grab entered username
+# to follow
 @app.route( "/followAuth", methods = ["POST"] )
 @login_required
 def followAuth( ):
