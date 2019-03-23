@@ -72,6 +72,8 @@ def grabAllPhotoData( ):
         timestamp = item[ "timestamp" ]
         likerUsername = item[ "likerUsername" ]
         caption = item[ "caption" ]
+        allFollowers = item[ "allFollowers" ]
+        
         
         # if photoID not in dictionary, add it 
         # and set followers list to empty and set liked status 
@@ -219,18 +221,46 @@ def logout():
 @login_required
 def upload_image():
     try:
-        # grab image name, filepath, username, caption
+        # grab image name, filepath, username, caption, 
+        # allFollowers
         image_file = request.files.get("imageToUpload", "")
         image_name = image_file.filename
         filepath = os.path.join(IMAGES_DIR, image_name)
         image_file.save(filepath)
         username = session[ "username" ]
         caption = request.form[ "caption" ]
-        # execute query to insert the photo's timestamp and filepath
-        query = "INSERT INTO photo ( photoOwner, timestamp, filePath, \
-                caption ) VALUES ( %s, %s, %s, %s )"
-        runQuery( query, None, (username, time.strftime('%Y-%m-%d %H:%M:%S'), \
-                image_name, caption ) )
+        allFollowers = False
+        if request.form[ "allFollowers" ]:
+            allFollowers = True
+        
+        print( allFollowers )
+        # execute query to insert photo
+        query = "INSERT INTO\
+                Photo( photoOwner, timestamp, filePath, caption, allFollowers)\
+                VALUES ( %s, %s, %s, %s, %s )"
+        runQuery( query, None, (username, time.strftime('%Y-%m-%d %H:%M:%S'),\
+                image_name, caption, allFollowers ) )
+        # if we're not sharing to all followers,
+        # grab all groups the user is in and insert into the
+        # shares table
+        print( "done" )
+        query = "SELECT LAST_INSERT_ID()"
+        data = runQuery( query, None, None )
+        photoID = data.fetchone( )[ "photoID" ]
+        print( "|", allFollowers,"|" )
+        if allFollowers is None:
+            query = "SELECT groupName, groupOwner\
+                    FROM Belong\
+                    WHERE username = %s"
+            data = runQuery( query, "all", username )
+            groupsAndOwners = [ ]
+            for element in data:
+                groupsAndOwners.append( [ element[ "groupName" ],\
+                             element[ "groupOwner" ] ] )
+            for groupOwner in groupsAndOwners:
+                query = "INSERT INTO Share VALUES ( %s, %s, %s )"
+                runQuery( query, None, ( groupOwner[ 0 ], \
+                    groupOwner[ 1 ], photoID ) )
         message = "Image has been successfully uploaded."
         return render_template("upload.html", message=message)
     except:
