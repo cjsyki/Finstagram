@@ -41,6 +41,7 @@ def runQuery( query, returnType = None, parameters = None ):
     return
     
 def grabAllPhotoData( ):
+    username = session[ "username" ]
     # set and execute query to get data on all photos
     query = "SELECT * FROM Liked RIGHT OUTER JOIN \
             (photo JOIN person ON( photo.photoOwner = person.username ) )\
@@ -48,6 +49,7 @@ def grabAllPhotoData( ):
             ORDER BY Photo.timestamp ASC, Liked.timestamp ASC"
     data = runQuery( query, "all" )
     print( data )
+    # data to handle each photo:
     # dictionary with the format:
     # { 
     #   photoID: [
@@ -60,8 +62,6 @@ def grabAllPhotoData( ):
     #       caption
     #  ]
     # }
-    # 
-    # 
     photoData = { }
     for item in data:
         filePath = item[ "filePath" ]
@@ -74,7 +74,31 @@ def grabAllPhotoData( ):
         caption = item[ "caption" ]
         allFollowers = item[ "allFollowers" ]
         
-        
+        # if we are not the photo owner, run through allFollowers
+        # tests
+        if photoOwner != username:
+            # if allFollowers was checked, 
+            # run query to grab followers of the photoOwner
+            # if photoOwner has no followers OR current user is not 
+            # a follower of photoOwner, COTINUE (DO NOT SHOW PHOTO)
+            if allFollowers:
+                query = "SELECT followerUsername\
+                        FROM Follow\
+                        WHERE followeeUsername = %s AND acceptedFollow = True" 
+                data = runQuery( query, "one", photoOwner )
+                if not data or data[ "followerUsername" ] != username:
+                    continue
+            # else if allFollowers was not checked,
+            # check to see if the photoID is in the same group the 
+            # current user is in. if not, CONTINUE (DO NOT SHOW PHOTO)
+            else:
+                query = "SELECT username\
+                        FROM Belong NATURAL JOIN Share\
+                        WHERE PhotoID = %s AND username = %s" 
+                data = runQuery( query, "one", ( photoID, username ) )
+                if not data:
+                    continue
+
         # if photoID not in dictionary, add it 
         # and set followers list to empty and set liked status 
         # to False
@@ -89,7 +113,6 @@ def grabAllPhotoData( ):
         if likerUsername == session[ "username" ]:
             photoData[ photoID ][ 5 ] = True
     # pass dictionary into images page
-    print( photoData )
     return photoData
 
 # main page
@@ -221,47 +244,58 @@ def logout():
 @login_required
 def upload_image():
     try:
-        # grab image name, filepath, username, caption, 
-        # allFollowers
+        # grab image name, filepath, username, caption
         image_file = request.files.get("imageToUpload", "")
         image_name = image_file.filename
         filepath = os.path.join(IMAGES_DIR, image_name)
         image_file.save(filepath)
         username = session[ "username" ]
         caption = request.form[ "caption" ]
-        allFollowers = False
-        if request.form[ "allFollowers" ]:
-            allFollowers = True
-        
-        print( allFollowers )
+        # if user checks allFollowers, set to true, else set false
+        try:
+            if request.form[ "allFollowers" ]:
+                allFollowers = True
+        except:
+            allFollowers = False        
         # execute query to insert photo
         query = "INSERT INTO\
                 Photo( photoOwner, timestamp, filePath, caption, allFollowers)\
                 VALUES ( %s, %s, %s, %s, %s )"
         runQuery( query, None, (username, time.strftime('%Y-%m-%d %H:%M:%S'),\
                 image_name, caption, allFollowers ) )
-        # if we're not sharing to all followers,
-        # grab all groups the user is in and insert into the
-        # shares table
-        print( "done" )
+        # run query to grab photoID of the photo
+        # that was last inserted (uploaded)
         query = "SELECT LAST_INSERT_ID()"
-        data = runQuery( query, None, None )
-        photoID = data.fetchone( )[ "photoID" ]
-        print( "|", allFollowers,"|" )
-        if allFollowers is None:
+        data = runQuery( query, "one", None )
+        photoID = data[ "LAST_INSERT_ID()" ]
+
+        # if we're sharing the photo with our close friends group,
+        if not allFollowers:
+            # run query to grab all groups the current user is in
             query = "SELECT groupName, groupOwner\
                     FROM Belong\
                     WHERE username = %s"
             data = runQuery( query, "all", username )
             groupsAndOwners = [ ]
+            # for every group ( and their corresponding owners ),
+            # append groupName and groupOwner into a new array
+            # array format is as follows:
+            # [ [groupA_Name, groupA_Owner], 
+            #   [groupB_Name, groupB_Owner], 
+            # ... ]
             for element in data:
-                groupsAndOwners.append( [ element[ "groupName" ],\
-                             element[ "groupOwner" ] ] )
+                groupsAndOwners.append( [ element[ "groupName" ], element[ "groupOwner" ] ] )
+            # insert group names, group owners, and the photoID into 
+            # the share table
             for groupOwner in groupsAndOwners:
                 query = "INSERT INTO Share VALUES ( %s, %s, %s )"
-                runQuery( query, None, ( groupOwner[ 0 ], \
-                    groupOwner[ 1 ], photoID ) )
-        message = "Image has been successfully uploaded."
+                runQuery( query, None, ( groupOwner[ 0 ], groupOwner[ 1 ], photoID ) )
+            message = "Image has been successfully uploaded and\
+                    shared with your group"
+        # else, if it is shared with just followers, 
+        else:
+            message = "Image has been successfully uploaded and\
+                    shared with your followers"
         return render_template("upload.html", message=message)
     except:
         message = "Failed to upload image."
