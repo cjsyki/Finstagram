@@ -24,9 +24,7 @@
                         Uploaded on: {{ data[ 3 ] }}
                     </td>
                     <td> 
-                        {% if data[ 6 ] %}
-                            {{ data[ 6 ] }}
-                        {% endif %}
+                        {{ data[ 6 ] }}
                     </td>
                     <td>
                         {#
@@ -37,6 +35,14 @@
                             <a href="/images?photoID={{photoID}}&option=unlike">Unlike Photo</a>
                         {% else %}
                             <a href="/images?photoID={{photoID}}&option=like">Like Photo</a>
+                        {% endif %}
+                        
+                        {# 
+                        if user is the owner of photo, show 
+                        delete photo button
+                        #}
+                        {% if data[ 7 ] %}
+                            <a href="/images?photoID={{photoID}}&option=delete" style="color: red">Delete Photo</a>
                         {% endif %}
                     </td>
                     <td><ul>

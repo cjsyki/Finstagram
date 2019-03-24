@@ -48,7 +48,6 @@ def grabAllPhotoData( ):
             USING( photoID )\
             ORDER BY Photo.timestamp ASC, Liked.timestamp ASC"
     data = runQuery( query, "all" )
-    print( data )
     # data to handle each photo:
     # dictionary with the format:
     # { 
@@ -59,7 +58,8 @@ def grabAllPhotoData( ):
     #       timestamp,
     #       [list of users who liked],
     #       True/False if user has liked photo,
-    #       caption
+    #       caption,
+    #       True/False if user is owner (for deletion of photos)
     #  ]
     # }
     photoData = { }
@@ -102,10 +102,13 @@ def grabAllPhotoData( ):
         # if photoID not in dictionary, add it 
         # and set followers list to empty and set liked status 
         # to False
+        # set userIsOwner if user is owner of photo (for deletion
+        # of photo purposes)
         if photoID not in photoData:
             photoData[ photoID ] = [ filePath, photoOwner, \
                                     firstName + " " + lastName,\
-                                    timestamp, [ ], False, caption ]
+                                    timestamp, [ ], False, caption, \
+                                    True if username == photoOwner else False  ]
         photoData[ photoID ][ 4 ].append( likerUsername )
         
         # if the user liked the photo (if the current user and photoID
@@ -150,6 +153,8 @@ def images():
     option = request.args.get( "option" )
     # if user clicked unlike, remove from liked table.
     # else, add to liked table
+    # if user clicked delete photo, delete the photo (w photoID)
+    # from photo, tag, liked, caption table
     try:
         if option == "unlike":
             query = "DELETE FROM Liked WHERE likerUsername = %s AND\
@@ -159,6 +164,18 @@ def images():
             query = "INSERT INTO Liked VALUES( %s, %s, %s )"
             runQuery( query, None, ( username, photoID, \
                     time.strftime('%Y-%m-%d %H:%M:%S') ) )
+        elif option == "delete":
+            query = "DELETE FROM Photo WHERE photoID = %s"
+            runQuery( query, None, photoID )
+            query = "DELETE FROM Share WHERE photoID = %s"
+            runQuery( query, None, photoID )
+            query = "DELETE FROM Liked WHERE photoID = %s"
+            runQuery( query, None, photoID )
+            query = "DELETE FROM Tag WHERE photoID = %s"
+            runQuery( query, None, photoID )
+            query = "DELETE FROM Comment WHERE photoID = %s"
+            runQuery( query, None, photoID )
+
     except pymysql.err.IntegrityError:
         return redirect( url_for( "images" ) )
     # ============
