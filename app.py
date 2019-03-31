@@ -140,13 +140,14 @@ def upload():
     return render_template("upload.html")
 
 # users images page. login required
-@app.route("/images", methods=["GET"])
+@app.route("/images", methods=["GET"], defaults = {"error": None } )
+@app.route("/images?<error>", methods=["GET"])
 @login_required
-def images():
+def images( error ):
     # ============
     # the following is only if the user
     # likes or dislikes a photo
-    
+
     # grab the photoID and option (like/unlike) from url
     username = session[ "username" ]
     photoID = request.args.get( "photoID" )
@@ -179,8 +180,9 @@ def images():
     except pymysql.err.IntegrityError:
         return redirect( url_for( "images" ) )
     # ============
+    # grab all photo data and render template
     photoData = grabAllPhotoData( )
-    return render_template("images.html", images = photoData )
+    return render_template("images.html", error = error, images = photoData )
 
 # image page ( url for a single image )
 @app.route("/image/<image_name>", methods=["GET"])
@@ -456,17 +458,20 @@ def follow( error ):
     currentUsername = session[ "username" ]
     option = request.args.get( "option" )
     followUsername = request.args.get( "username" )
+
     # if user accepts request, change bool to True
     if option == "accept":
         query = "UPDATE Follow\
                 SET acceptedfollow = True\
                 WHERE followerUsername = %s AND followeeUsername = %s"
         runQuery( query, None, ( followUsername, currentUsername ) )
+    
     # if user declines, delete request
     if option == "reject":
         query = "DELETE FROM Follow\
                 WHERE followerUsername = %s AND followeeUsername = %s"
         runQuery( query, None, ( followUsername, currentUsername ) )
+    
     # if user unfollows someone, delete from follows
     if option == "unfollow":
         query = "DELETE FROM Follow\
@@ -514,9 +519,7 @@ def followAuth( ):
         followerUsername = session[ "username" ]
         followeeUsername = request.form[ "followeeUsername" ]
         # if someone wants to follow himself, return an error
-        if followerUsername == followeeUsername:
-            error = "You cannot follow yourself"
-            return redirect( url_for( "follow", error = error ) )
+        if followerUsername == followeeUsername: return redirect( url_for( "follow", error = "You cannot follow yourself" ) )
         # run query to check if user exists. if it doesn't, return error 
         query = "SELECT * FROM Person WHERE username = %s"
         data = runQuery( query, "one", followeeUsername )
@@ -536,6 +539,82 @@ def followAuth( ):
     else:
         error = "An error has occurred. Please try again"
         return redirect( url_for( "follow", error = error ) )
+
+
+# post method to tag person into a photo
+@app.route( "/tagPerson", methods = [ "POST" ] )
+@login_required
+def tagPerson( ):
+    if request.form:
+        # grab taggedUser's name ( from textfield )
+        taggedUser = request.form[ "taggedUser" ]
+        if len( taggedUser ) == 0: return redirect( url_for( "images", error = "you must enter a name" ) )\
+
+        # run query to grab the photoID's owner
+        photoID = request.args.get( "photoID" )
+        query = "SELECT photoOwner\
+                FROM photo\
+                WHERE photoID = %s"
+        photoOwner = runQuery( query, "one", photoID )[ "photoOwner" ]
+        
+        # if we own the photo, try adding it to tag table
+        # return error if we already tagged ourselves
+        if photoOwner == taggedUser:
+            try:
+                query = "INSERT INTO Tag VALUES( %s, %s, True )"
+                runQuery( query, None, ( photoOwner, photoID ) )
+                error = "successfully tagged %s" %( photoOwner )
+            except: 
+                error = "%s has already been tagged" %( photoOwner )
+            return redirect( url_for( "images", error = error ) )
+
+        # query to grab whether the photo is shared with followers or groups
+        query = "SELECT allFollowers\
+                FROM photo\
+                WHERE photoID = %s"
+        allFollowers = runQuery( query, "one", photoID )
+
+        # if we're sharing with all followers,
+        # check if the taggedUser is a follower of the current user
+        if allFollowers["allFollowers"]:
+            query = "SELECT *\
+                    FROM follow\
+                    WHERE followerUsername = %s AND followeeUsername = %s\
+                        AND acceptedFollow = 1"
+            data = runQuery( query, "one", ( taggedUser, photoOwner ) )
+            # if taggedUser isn't a follower, return an error
+            print( "1 ", data )
+            if not data:
+                error = "you cannot tag %s as they do not follow %s" \
+                        %( taggedUser, photoOwner )
+                return redirect( url_for( "images", error = error ) )
+        
+        # else, check to see if the taggedUser is in the same group
+        # as the current user
+        else:
+            query = "SELECT *\
+                    FROM belong AS b1 JOIN belong AS b2 USING( groupName, groupOwner )\
+                    WHERE b1.username = %s AND b2.username = %s"
+            data = runQuery( query, "one", ( taggedUser, photoOwner ) )
+            # if taggedUser isn't a follower, return an error
+            print( "2", data )
+            if not data:
+                error = "you cannot tag %s as they are not in the same group\
+                        as %s" %( taggedUser, photoOwner )
+                return redirect( url_for( "images", error = error ) )
+            
+        # try inserting the tag into the tag table. if there is an error,
+        # that means there already is a tagged request for the user 
+        query = "INSERT INTO Tag VALUES( %s, %s, False )"
+        try: 
+            runQuery( query, None, ( taggedUser, photoID ) )
+            error = "tag request has been sent to %s" %( taggedUser )
+        except:
+            error = "either a request to %s has already been sent or\
+                    they are already tagged" %( taggedUser )
+        return redirect( url_for( "images", error = error ) )
+
+
 
 
 if __name__ == "__main__":

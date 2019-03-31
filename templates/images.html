@@ -6,6 +6,9 @@
     </head>
     <body>
         <h1>Image Gallery</h1>
+        {% if error %}
+            <div style="color:red">{{ error }}</div>
+        {% endif %}
         <table style="width: 100%">
         {#
         for every photoID and its corresponding followers,
@@ -24,7 +27,7 @@
                         Uploaded on: {{ data[ 3 ] }}
                     </td>
                     <td> 
-                        {{ data[ 6 ] }}
+                        <i>{{ data[ 6 ] }}</i>
                     </td>
                     <td>
                         {#
@@ -44,10 +47,20 @@
                         {% if data[ 7 ] %}
                             <a href="/images?photoID={{photoID}}&option=delete" style="color: red">Delete Photo</a>
                         {% endif %}
+
+                        <form action="/tagPerson?photoID={{photoID}}" method="POST">
+                            <input type="text" name="taggedUser" placeholder="Enter who you want to tag">
+                            <input type="submit" value="Submit">
+                        </form>
                     </td>
                     <td><ul>
-                        {% for follower in data[ 4 ] %}
-                            <li>{{ follower }}</li>    
+                        Tagged:
+                        {% for tag in data[ 4 ] %}
+                            <li>{{ tag }}</li>    
+                        {% endfor %}
+                        Liked by:
+                        {% for like in data[ 4 ] %}
+                            <li>{{ like }}</li>    
                         {% endfor %}
                     </ul></td>
                 </tr>
