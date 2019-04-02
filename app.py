@@ -47,6 +47,10 @@ def grabAllPhotoData( ):
             (photo JOIN person ON( photo.photoOwner = person.username ) )\
             USING( photoID )\
             ORDER BY Photo.timestamp ASC, Liked.timestamp ASC"
+    query = "SELECT * FROM Tag RIGHT OUTER JOIN ( Liked RIGHT OUTER JOIN\
+            (photo JOIN person ON( photo.photoOwner = person.username ) )\
+            USING( photoID ) ) USING( photoID )\
+            ORDER BY Photo.timestamp ASC, Liked.timestamp ASC"
     data = runQuery( query, "all" )
     # data to handle each photo:
     # dictionary with the format:
@@ -557,62 +561,70 @@ def tagPerson( ):
                 WHERE photoID = %s"
         photoOwner = runQuery( query, "one", photoID )[ "photoOwner" ]
         
-        # if we own the photo, try adding it to tag table
-        # return error if we already tagged ourselves
-        if photoOwner == taggedUser:
-            try:
-                query = "INSERT INTO Tag VALUES( %s, %s, True )"
-                runQuery( query, None, ( photoOwner, photoID ) )
-                error = "successfully tagged %s" %( photoOwner )
-            except: 
-                error = "%s has already been tagged" %( photoOwner )
+        # check to see if either a request has been sent to tagUser
+        # or if the user already accepted a tag request
+        query = "SELECT *\
+                FROM tag\
+                WHERE photoID = %s AND username = %s"
+        data = runQuery( query, "one", ( photoID, taggedUser ) )
+        if data:
+            error = "either a request to %s has already been sent or\
+                    they are already tagged" %( taggedUser )
             return redirect( url_for( "images", error = error ) )
 
-        # query to grab whether the photo is shared with followers or groups
-        query = "SELECT allFollowers\
-                FROM photo\
-                WHERE photoID = %s"
-        allFollowers = runQuery( query, "one", photoID )
+        # if we are the tagged user, add it to tag table
+        if taggedUser == session[ "username" ]:
+            query = "INSERT INTO Tag VALUES( %s, %s, True )"
+            runQuery( query, None, ( taggedUser, photoID ) )
+            error = "successfully tagged %s" %( taggedUser )
+            return redirect( url_for( "images", error = error ) )
 
-        # if we're sharing with all followers,
-        # check if the taggedUser is a follower of the current user
-        if allFollowers["allFollowers"]:
-            query = "SELECT *\
-                    FROM follow\
-                    WHERE followerUsername = %s AND followeeUsername = %s\
-                        AND acceptedFollow = 1"
-            data = runQuery( query, "one", ( taggedUser, photoOwner ) )
-            # if taggedUser isn't a follower, return an error
-            print( "1 ", data )
-            if not data:
-                error = "you cannot tag %s as they do not follow %s" \
-                        %( taggedUser, photoOwner )
-                return redirect( url_for( "images", error = error ) )
-        
-        # else, check to see if the taggedUser is in the same group
-        # as the current user
-        else:
-            query = "SELECT *\
-                    FROM belong AS b1 JOIN belong AS b2 USING( groupName, groupOwner )\
-                    WHERE b1.username = %s AND b2.username = %s"
-            data = runQuery( query, "one", ( taggedUser, photoOwner ) )
-            # if taggedUser isn't a follower, return an error
-            print( "2", data )
-            if not data:
-                error = "you cannot tag %s as they are not in the same group\
-                        as %s" %( taggedUser, photoOwner )
-                return redirect( url_for( "images", error = error ) )
+        # if the photoOwner is NOT the tagged user
+        # NEEDED because the photoOwner cannot follow himself
+        if photoOwner != taggedUser:
+            # query to grab whether the photo is shared with followers or groups
+            query = "SELECT allFollowers\
+                    FROM photo\
+                    WHERE photoID = %s"
+            allFollowers = runQuery( query, "one", photoID )
+            # if we're sharing with all followers,
+            # check if the taggedUser is a follower of the current user
+            if allFollowers["allFollowers"]:
+                query = "SELECT *\
+                        FROM follow\
+                        WHERE followerUsername = %s AND followeeUsername = %s\
+                            AND acceptedFollow = 1"
+                data = runQuery( query, "one", ( taggedUser, photoOwner ) )
+                # if taggedUser isn't a follower, return an error
+                print( "1 ", data )
+                if not data:
+                    error = "you cannot tag %s as they do not follow %s" \
+                            %( taggedUser, photoOwner )
+                    return redirect( url_for( "images", error = error ) )
             
+            # else, check to see if the taggedUser is in the same group
+            # as the current user
+            else:
+                query = "SELECT *\
+                        FROM belong AS b1 JOIN belong AS b2 USING( groupName, groupOwner )\
+                        WHERE b1.username = %s AND b2.username = %s"
+                data = runQuery( query, "one", ( taggedUser, photoOwner ) )
+                # if taggedUser isn't a follower, return an error
+                print( "2", data )
+                if not data:
+                    error = "you cannot tag %s as they are not in the same group\
+                            as %s" %( taggedUser, photoOwner )
+                    return redirect( url_for( "images", error = error ) )
+                
         # try inserting the tag into the tag table. if there is an error,
         # that means there already is a tagged request for the user 
         query = "INSERT INTO Tag VALUES( %s, %s, False )"
-        try: 
-            runQuery( query, None, ( taggedUser, photoID ) )
-            error = "tag request has been sent to %s" %( taggedUser )
-        except:
-            error = "either a request to %s has already been sent or\
-                    they are already tagged" %( taggedUser )
+        runQuery( query, None, ( taggedUser, photoID ) )
+        error = "tag request has been sent to %s" %( taggedUser )
         return redirect( url_for( "images", error = error ) )
+    # if user didn't submit form, return error
+    error = "something went wrong. please try again"
+    return redirect( url_for( "images", error = error ) )
 
 
 
