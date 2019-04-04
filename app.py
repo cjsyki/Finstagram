@@ -47,15 +47,11 @@ def grabAllPhotoData( ):
             (photo JOIN person ON( photo.photoOwner = person.username ) )\
             USING( photoID )\
             ORDER BY Photo.timestamp ASC, Liked.timestamp ASC"
-    query = "SELECT * FROM Tag RIGHT OUTER JOIN ( Liked RIGHT OUTER JOIN\
-            (photo JOIN person ON( photo.photoOwner = person.username ) )\
-            USING( photoID ) ) USING( photoID )\
-            ORDER BY Photo.timestamp ASC, Liked.timestamp ASC"
     data = runQuery( query, "all" )
     # data to handle each photo:
     # dictionary with the format:
     # { 
-    #   photoID: [
+    #   photoID: {
     #       filepath, 
     #       photoOwner,
     #       firstName + lastName of photo owner,
@@ -64,7 +60,7 @@ def grabAllPhotoData( ):
     #       True/False if user has liked photo,
     #       caption,
     #       True/False if user is owner (for deletion of photos)
-    #  ]
+    #  }
     # }
     photoData = { }
     for item in data:
@@ -109,16 +105,43 @@ def grabAllPhotoData( ):
         # set userIsOwner if user is owner of photo (for deletion
         # of photo purposes)
         if photoID not in photoData:
-            photoData[ photoID ] = [ filePath, photoOwner, \
-                                    firstName + " " + lastName,\
-                                    timestamp, [ ], False, caption, \
-                                    True if username == photoOwner else False  ]
-        photoData[ photoID ][ 4 ].append( likerUsername )
+            photoData[ photoID ] = { "currentUser": username,
+                                     "filePath": filePath,
+                                     "photoOwner": photoOwner, 
+                                     "name": firstName + " " + lastName,
+                                     "timestamp": timestamp,
+                                     "likes": [ ],
+                                     "caption": caption,
+                                     "tags": { },
+                                     "userIsPhotoOwner": True if username == photoOwner else False
+                                    }   
+        photoData[ photoID ][ "likes" ].append( likerUsername )
         
-        # if the user liked the photo (if the current user and photoID
-        # is in the Liked table), then set its liked status to True
-        if likerUsername == session[ "username" ]:
-            photoData[ photoID ][ 5 ] = True
+    # go through each photoID and append users who are tagged and
+    # whether they accepted the tag or not
+    for photoID in photoData:
+        # grab all the tags of the photoID
+        query = "SELECT *\
+                FROM tag\
+                WHERE photoID = %s"
+        data = runQuery( query, "all", photoID )
+        # for each entry of the Tag table (where photoID matches current 
+        # photo), check the user and whether the user accepted the tag
+        for tag in data:
+            taggedUser = tag[ "username" ]
+            acceptedTag = tag[ "acceptedTag" ]
+
+            # if the user accepted tag,
+            # show the user by adding him onto photoData
+            if acceptedTag:
+                photoData[ photoID ][ "tags" ][ taggedUser ] = True
+            
+            # elif we are the tagged user ( and we haven't accepted the tag ),
+            # set False to photoData (false needed for jinja to print acceptTag)
+            elif taggedUser == username:
+                photoData[ photoID ][ "tags" ][ taggedUser ] = False
+    
+        print( photoData[ photoID ][ "tags" ] )
     # pass dictionary into images page
     return photoData
 
@@ -156,19 +179,19 @@ def images( error ):
     username = session[ "username" ]
     photoID = request.args.get( "photoID" )
     option = request.args.get( "option" )
-    # if user clicked unlike, remove from liked table.
-    # else, add to liked table
-    # if user clicked delete photo, delete the photo (w photoID)
-    # from photo, tag, liked, caption table
     try:
+        # if user clicked unlike, remove from liked table.
         if option == "unlike":
             query = "DELETE FROM Liked WHERE likerUsername = %s AND\
                     photoID = %s"
             runQuery( query, None, ( username, photoID ) )
+        # if user clicked like, add to like table
         elif option == "like":
             query = "INSERT INTO Liked VALUES( %s, %s, %s )"
             runQuery( query, None, ( username, photoID, \
                     time.strftime('%Y-%m-%d %H:%M:%S') ) )
+        # if user clicked delete photo, delete the photo (w photoID)
+        # from photo, tag, liked, caption table
         elif option == "delete":
             query = "DELETE FROM Photo WHERE photoID = %s"
             runQuery( query, None, photoID )
@@ -180,7 +203,17 @@ def images( error ):
             runQuery( query, None, photoID )
             query = "DELETE FROM Comment WHERE photoID = %s"
             runQuery( query, None, photoID )
-
+        # if user clicked acceptTag, then set acceptedTag from tags table
+        # to true
+        elif option == "acceptTag":
+            query = "UPDATE Tag SET acceptedTag = True\
+                    WHERE photoID = %s AND username = %s"
+            runQuery( query, None, ( photoID, username ) )
+        # if user clicked rejectTag, delete from tag table
+        elif option == "rejectTag":
+            query = "DELETE FROM Tag WHERE photoID = %s AND username = %s"
+            runQuery( query, None, ( photoID, username ) )
+            
     except pymysql.err.IntegrityError:
         return redirect( url_for( "images" ) )
     # ============

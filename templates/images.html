@@ -18,23 +18,23 @@
             {% for photoID, data in images.items( ) %}
                 <tr>
                     <td>
-                        <img src="/image/{{data[0]}}" width="200"/>
+                        <img src="/image/{{data['filePath']}}" width="200"/>
                     </td>
                     <td>
-                        By: {{ data[ 2 ] }} ({{ data[ 1 ] }})
+                        By: {{ data[ "name" ] }} ({{ data[ "photoOwner" ] }})
                     </td>
                     <td>
-                        Uploaded on: {{ data[ 3 ] }}
+                        Uploaded on: {{ data[ "timestamp" ] }}
                     </td>
                     <td> 
-                        <i>{{ data[ 6 ] }}</i>
+                        <i>{{ data[ "caption" ] }}</i>
                     </td>
                     <td>
                         {#
                         if user liked the photo, show "unlike photo"
                         else, if the user doesnt like the photo, then show "like photo"
                         #}
-                        {% if data[ 5 ] %}
+                        {% if data[ "currentUser" ] in data[ "likes" ] %}
                             <a href="/images?photoID={{photoID}}&option=unlike">Unlike Photo</a>
                         {% else %}
                             <a href="/images?photoID={{photoID}}&option=like">Like Photo</a>
@@ -44,7 +44,7 @@
                         if user is the owner of photo, show 
                         delete photo button
                         #}
-                        {% if data[ 7 ] %}
+                        {% if data[ "userIsPhotoOwner" ] %}
                             <a href="/images?photoID={{photoID}}&option=delete" style="color: red">Delete Photo</a>
                         {% endif %}
 
@@ -54,12 +54,36 @@
                         </form>
                     </td>
                     <td><ul>
-                        Tagged:
-                        {% for tag in data[ 4 ] %}
-                            <li>{{ tag }}</li>    
+
+
+                        Tagged:<br>
+                        {% for taggedUser in data[ "tags" ] %}
+                            {% if data[ "tags" ][ taggedUser ] %} 
+                                <li>{{ taggedUser }}
+                                {% if taggedUser == data[ "currentUser" ] %}
+                                    <a href="/images?photoID={{photoID}}&option=rejectTag" stlye="color:red">
+                                        Delete Tag
+                                    </a>
+                                {% endif %}
+                                </li>
+                            {% else %} 
+                                <li style="color:red">
+                                    A request has been sent to tag you in this photo. 
+                                    Accept tag?
+                                    <br>
+                                    <a href="/images?photoID={{photoID}}&option=acceptTag" stlye="color:red">
+                                        Yes
+                                    </a> <br>            
+                                    <a href="/images?photoID={{photoID}}&option=rejectTag" stlye="color:red">
+                                        No
+                                    </a>
+                                </li>
+                            {% endif %}
                         {% endfor %}
+
+
                         Liked by:
-                        {% for like in data[ 4 ] %}
+                        {% for like in data[ "likes" ] %}
                             <li>{{ like }}</li>    
                         {% endfor %}
                     </ul></td>
