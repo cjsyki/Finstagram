@@ -33,8 +33,21 @@
             {{ message }}
         {% else %}
             {% for member in data %}
+                {# 
+                    if we're the owner of the group,
+                    display the group name in BOLD and showe the add user to group option 
+                #}
                 {% if member[ "groupOwner" ] == username %}
-                    <b>{{ member[ "groupName" ] }}</b><br>
+                    <b>{{ member[ "groupName" ] }}</b>
+                    <form action="/groupAddFriend" method="POST">
+                        <input type="text" name="friend" placeholder="add someone to {{member['groupName']}}" required/>
+                        <input type="hidden" name="groupName" value='{{ member["groupName"] }}'>
+                        <input type="submit" value="submit">
+                    </form>
+                    <br>
+                {# 
+                    else if we're in the group (but not owner), display group regularly 
+                #}
                 {% elif member[ "username" ] == username %}
                     {{ member[ "groupName" ] }}<br>
                 {% endif %}

@@ -485,6 +485,47 @@ def groupAuth( ):
         error = "An unknown error occurred. Please try again"
     return redirect( url_for( "groups", error = error ) )
 
+# adding someone to closefriendgroup
+@app.route( "/groupAddFriend", methods=["POST"] )
+@login_required
+def addFriend( ):
+    username = session[ "username" ]
+    error = None
+    if request.form:
+        # grab entered username and groupName
+        friend = request.form[ "friend" ]
+        groupName = request.form[ "groupName" ]
+        # if we entered ourself, return an error
+        if username == friend:
+            error = "You are already in the group"
+            return redirect( url_for( "groups", error = error ) )
+        # run query to check if user is already in group
+        # return an error if the user is already in the group
+        query = "SELECT *\
+                FROM Belong\
+                WHERE username = %s AND groupName = %s"
+        data = runQuery( query, "one", ( friend, groupName ) )
+        if data:
+            error = "%s is already in the group" %( friend )
+            return redirect( url_for( "groups", error = error ) )
+        # run query to check if user exists
+        # return an error if user does not 
+        query = "SELECT *\
+                FROM Person\
+                WHERE username = %s"
+        data = runQuery( query, "one", friend )
+        if not data:
+            error = "%s does not exist" %( friend )
+            return redirect( url_for( "groups", error = error ) )
+        # else, insert the user into the database and return success
+        query = "INSERT INTO Belong VALUES( %s, %s, %s )"
+        runQuery( query, None, ( groupName, username, friend ) )
+        error = "%shas been successfully added in the group" %( friend )
+        return redirect( url_for( "groups", error = error ) )
+    else:
+        error = "An unknown error occurred. Please try again"
+    return redirect( url_for( "groups", error = error ) )
+
 
 # view your followers page
 @app.route( "/follow", methods = ["GET"], defaults = {"error": None} )
