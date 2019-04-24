@@ -75,18 +75,18 @@ def grabAllPhotoData( ):
         allFollowers = item[ "allFollowers" ]
         
         # if we are not the photo owner, run through allFollowers
-        # tests
+        # tests to see if we display the photo for the current user
         if photoOwner != username:
             # if allFollowers was checked, 
             # run query to grab followers of the photoOwner
             # if photoOwner has no followers OR current user is not 
             # a follower of photoOwner, COTINUE (DO NOT SHOW PHOTO)
             if allFollowers:
-                query = "SELECT followerUsername\
+                query = "SELECT *\
                         FROM Follow\
-                        WHERE followeeUsername = %s AND acceptedFollow = True" 
-                data = runQuery( query, "one", photoOwner )
-                if not data or data[ "followerUsername" ] != username:
+                        WHERE followerUsername = %s AND followeeUsername = %s AND acceptedFollow = True" 
+                data = runQuery( query, "one", ( username, photoOwner ) )
+                if not data:
                     continue
             # else if allFollowers was not checked,
             # check to see if the photoID is in the same group the 
@@ -520,7 +520,7 @@ def addFriend( ):
         # else, insert the user into the database and return success
         query = "INSERT INTO Belong VALUES( %s, %s, %s )"
         runQuery( query, None, ( groupName, username, friend ) )
-        error = "%shas been successfully added in the group" %( friend )
+        error = "%s has been successfully added in the group" %( friend )
         return redirect( url_for( "groups", error = error ) )
     else:
         error = "An unknown error occurred. Please try again"
