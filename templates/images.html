@@ -86,6 +86,15 @@
                         {% for like in data[ "likes" ] %}
                             <li>{{ like }}</li>    
                         {% endfor %}
+                        Comments:
+                            <form action="/addComment?photoID={{photoID}}" method="POST">
+                                <input type="text" name="comment" placeholder="Enter your comment:">
+                                <input type="submit" value="Add comment">
+                            </form>
+                            <br>
+                            {% for comment in data[ "comments" ] %}
+                                <b>{{ comment[ 0 ] }}:</b> {{ comment[ 1 ] }}<br>
+                            {% endfor %}
                     </ul></td>
                 </tr>
             {% endfor %}

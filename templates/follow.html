@@ -26,12 +26,12 @@
         <h1>Following:</h1>
             {% for follower in followers %}
                 {{ follower }} - 
-                <a href="/follow?option=unfollow&username={{follower}}">Unfollow</a>
+                <a href="/follow?option=unfollow&username={{follower}}">Unfollow</a><br>
             {% endfor %}
         <br>
         <h1>Followed by:</h1>
             {% for followee in followees %}
-                {{ followee }} 
+                {{ followee }}<br>
             {% endfor %}
         <div>
         </div>

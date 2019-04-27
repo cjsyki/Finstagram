@@ -60,10 +60,12 @@ def grabAllPhotoData( ):
     #       True/False if user has liked photo,
     #       caption,
     #       True/False if user is owner (for deletion of photos)
+    #       comments
     #  }
     # }
     photoData = { }
     for item in data:
+        print( item )
         filePath = item[ "filePath" ]
         photoID = item[ "photoID" ]
         photoOwner = item[ "photoOwner" ]
@@ -113,13 +115,25 @@ def grabAllPhotoData( ):
                                      "likes": [ ],
                                      "caption": caption,
                                      "tags": { },
-                                     "userIsPhotoOwner": True if username == photoOwner else False
+                                     "userIsPhotoOwner": True if username == photoOwner else False,
+                                     "comments": [ ]
                                     }   
         photoData[ photoID ][ "likes" ].append( likerUsername )
         
-    # go through each photoID and append users who are tagged and
-    # whether they accepted the tag or not
+    # go through each photoID and append tagged users and comments 
     for photoID in photoData:
+        # query to all comments
+        query = "SELECT username, commentText\
+                FROM Comment\
+                WHERE photoID = %s\
+                ORDER BY Comment.timestamp ASC"
+        data = runQuery( query, "all", photoID )
+        # go through each comment and append it into list of comments 
+        for userComment in data:
+            commentee = userComment[ "username" ]
+            comment = userComment[ "commentText" ]
+            photoData[ photoID ][ "comments" ].append( [ commentee, comment ] )
+
         # grab all the tags of the photoID
         query = "SELECT *\
                 FROM tag\
@@ -142,6 +156,7 @@ def grabAllPhotoData( ):
                 photoData[ photoID ][ "tags" ][ taggedUser ] = False
     
         print( photoData[ photoID ][ "tags" ] )
+    
     # pass dictionary into images page
     return photoData
 
@@ -626,7 +641,8 @@ def tagPerson( ):
     if request.form:
         # grab taggedUser's name ( from textfield )
         taggedUser = request.form[ "taggedUser" ]
-        if len( taggedUser ) == 0: return redirect( url_for( "images", error = "you must enter a name" ) )\
+        if len( taggedUser ) == 0: 
+            return redirect( url_for( "images", error = "you must enter a name" ) )
 
         # run query to grab the photoID's owner
         photoID = request.args.get( "photoID" )
@@ -700,7 +716,28 @@ def tagPerson( ):
     error = "something went wrong. please try again"
     return redirect( url_for( "images", error = error ) )
 
+# post method to add comment
+@app.route( "/addComment", methods = [ "POST" ] )
+@login_required
+def addComment( ):
+    if request.form:
+        # grab current user, comment, and photoID
+        username = session[ "username" ]
+        comment = request.form[ "comment" ]
+        photoID =  request.args.get( "photoID" )
 
+        # if user wrote no comment, return an error
+        if len( comment ) == 0:
+            return redirect( url_for( "images", error = "you must enter a comment" ) )
+        
+        # add comment to the comments table
+        query = "INSERT INTO Comment VALUES( %s, %s, %s, %s )"
+        runQuery( query, None, ( username, photoID, comment, \
+                        time.strftime('%Y-%m-%d %H:%M:%S') ) )
+        error = "comment successfully added"
+    else:
+        error = "an error has occurred. please try again"
+    return redirect( url_for( "images", error = error ) )
 
 
 if __name__ == "__main__":

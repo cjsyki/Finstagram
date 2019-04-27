@@ -75,9 +75,9 @@ CREATE TABLE Tag(
 CREATE TABLE Comment(
     username VARCHAR(20),
     photoID int,
-    commentText VARCHAR(1024),
+    commentText VARCHAR(50),
     timestamp Timestamp,
-    PRIMARY KEY (photoID, username),
+    PRIMARY KEY (photoID, username, commentText, timestamp),
     FOREIGN KEY (photoID) REFERENCES Photo(photoID),
     FOREIGN KEY (username) REFERENCES Person(username)
 );
